@@ -8,10 +8,10 @@
 # @martinorob https://github.com/martinorob/plexupdate
 # @michealespinola https://github.com/michealespinola/syno.plexupdate
 
-# Checking for script running as root
+# Checking if the script is running as root
 if [ "$EUID" -ne "0" ];
   then
-    printf " %s\n" "This script must be run with root persmissions."
+    printf " %s\n" "Error: This script must be run with root permissions."
     /usr/syno/bin/synonotify PKGHasUpgrade '{"%PKG_HAS_UPDATE%": "Plex Media Server automatic update script failed.\n\nThis script must be run with root permissions."}'
     printf "\n"
     exit 1
@@ -22,8 +22,8 @@ DSMVersion=$(cat /etc.defaults/VERSION | grep -i 'majorversion=' | cut -d"\"" -f
 /usr/bin/dpkg --compare-versions 7 gt "$DSMVersion"
 if [ "$?" -eq "0" ];
   then
-    printf " %s\n" "This script requires DSM 7 to be installed."
-    /usr/syno/bin/synonotify PKGHasUpgrade '{"%PKG_HAS_UPDATE%": "Plex Media Server automatic update script failed.\n\nThe script requires DSM 7 to be installed."}'
+    printf " %s\n" "Error: This script requires DSM 7."
+    /usr/syno/bin/synonotify PKGHasUpgrade '{"%PKG_HAS_UPDATE%": "Plex Media Server automatic update script failed.\n\nThe script requires DSM 7."}'
     printf "\n"
     exit 1
 fi
