@@ -1,58 +1,45 @@
 #!/bin/bash
+# Description:  This script updates Plex Media Server to the latest version available.
 
-# Author: @loicdugay https://github.com/loicdugay
-# Link: https://github.com/loicdugay/synology-plex-auto-update
-#
-# Thanks to:
-# @mj0nsplex https://forums.plex.tv/u/j0nsplex
-# @martinorob https://github.com/martinorob/plexupdate
-# @michealespinola https://github.com/michealespinola/syno.plexupdate
-
-# Checking if the script is running as root
+# Check script is running as root
 if [ "$EUID" -ne "0" ];
   then
-    printf " %s\n" "Error: This script must be run with root permissions."
-    /usr/syno/bin/synonotify PKGHasUpgrade '{"%PKG_HAS_UPDATE%": "Plex Media Server automatic update script failed.\n\nThis script must be run with root permissions."}'
-    printf "\n"
+    echo Error: This script must be run by root.
     exit 1
 fi
 
-# Checking the version of DSM
-DSMVersion=$(cat /etc.defaults/VERSION | grep -i 'majorversion=' | cut -d"\"" -f 2)
-/usr/bin/dpkg --compare-versions 7 gt "$DSMVersion"
+# Check current version of DSM
+dsm_version=$(cat /etc.defaults/VERSION | grep -i 'majorversion=' | cut -d"\"" -f 2)
+/usr/bin/dpkg --compare-versions 7 gt "$dsm_version"
 if [ "$?" -eq "0" ];
   then
-    printf " %s\n" "Error: This script requires DSM 7."
-    /usr/syno/bin/synonotify PKGHasUpgrade '{"%PKG_HAS_UPDATE%": "Plex Media Server automatic update script failed.\n\nThe script requires DSM 7."}'
-    printf "\n"
+    echo Error: This script requires DSM version 7.0.
     exit 1
 fi
 
-# Finding the Plex Media Server version
+# Get latest version of Plex Media Server
 mkdir -p /tmp/plex/ > /dev/null 2>&1
-token=$(cat /volume1/@apphome/PlexMediaServer/Plex\ Media\ Server/Preferences.xml | grep -oP 'PlexOnlineToken="\K[^"]+')
+token=$(cat /volume1/PlexMediaServer/AppData/Plex\ Media\ Server/Preferences.xml | grep -oP 'PlexOnlineToken="\K[^"]+')
 url=$(echo "https://plex.tv/api/downloads/5.json?channel=plexpass&X-Plex-Token=$token")
 jq=$(curl -s ${url})
-newversion=$(echo $jq | jq -r '.nas."Synology (DSM 7)".version')
-newversion=$(echo $newversion | grep -oP '^.+?(?=\-)')
-curversion=$(synopkg version "PlexMediaServer")
-curversion=$(echo $curversion | grep -oP '^.+?(?=\-)')
+new_version=$(echo $jq | jq -r '.nas."Synology (DSM 7)".version' | grep -oP '^.+?(?=\-)')
+installed_version=$(synopkg version "PlexMediaServer" | grep -oP '^.+?(?=\-)')
 
-echo Version available : $newversion
-echo Version installed : $curversion
+echo New version : $new_version
+echo Current version : $installed_version
 
-if [ "$newversion" != "$curversion" ]
+# Check current version of Plex Media Server is up to date
+if [ "$new_version" != "$installed_version" ]
   then
-    echo New version available, installation in progress. :
-    CPU=$(uname -m)
-    url=$(echo "${jq}" | jq -r '.nas."Synology (DSM 7)".releases[] | select(.build=="linux-'"${CPU}"'") | .url')
+    echo New version available! Installing... :
+    cpu=$(uname -m)
+    url=$(echo "${jq}" | jq -r '.nas."Synology (DSM 7)".releases[] | select(.build=="linux-'"${cpu}"'") | .url')
     /bin/wget $url -P /tmp/plex/
     /usr/syno/bin/synopkg install /tmp/plex/*.spk
     sleep 30
     /usr/syno/bin/synopkg start "PlexMediaServer"
     rm -rf /tmp/plex/*
-    /usr/syno/bin/synonotify PKGHasUpgrade '{"%PKG_HAS_UPDATE%": "Plex Media Server automatic update script installed to the latest available version."}'
   else
-    echo No new version to install.
+    echo Current version up to date! Skipping...
 fi
 exit
